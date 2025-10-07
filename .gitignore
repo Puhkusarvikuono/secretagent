@@ -11,4 +11,4 @@ wheels/
 
 # API key file
 
-api.env
+.env
