@@ -66,21 +66,36 @@ def main():
             schema_write_file,
         ]
     )
+       
+    count = 0
 
-    response = client.models.generate_content(
-        model='gemini-2.0-flash-001',
-        contents=messages,
-        config=types.GenerateContentConfig(
-            tools=[available_functions], system_instruction=system_prompt
-        )
-    )
+    while count < 20:
+        
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.0-flash-001',
+                contents=messages,
+                config=types.GenerateContentConfig(
+                    tools=[available_functions], system_instruction=system_prompt
+                )
+            )
+        except Exception as e:
+            print(f"Error: {e}")
+            break
 
-    prompt_tokens = response.usage_metadata.prompt_token_count
-    response_tokens = response.usage_metadata.candidates_token_count
+     
+        for candidate in response.candidates:
+            messages.append(candidate.content)
 
-    if response.function_calls:
-        calls = response.function_calls
-        for call in calls:
+        prompt_tokens = response.usage_metadata.prompt_token_count
+        response_tokens = response.usage_metadata.candidates_token_count
+        function_responses = []
+
+        if not response.function_calls:
+            print(response.text)
+            break
+
+        for call in response.function_calls:
             function_call_result = call_function(call, verbose)
             if not function_call_result.parts[0].function_response.response:
                 raise ValueError(
@@ -88,13 +103,19 @@ def main():
                 )
             if verbose:
                 print(f"-> {function_call_result.parts[0].function_response.response}")
+            function_responses.append(function_call_result.parts[0])
+            if not function_responses:
+                raise Exception("no function responses generated, exiting.")
+        messages.append(types.Content(role="user", parts=function_responses))
+        count += 1
     
-    else:
-        print(response.text)
-        if verbose:
-            print(f"User prompt: {user_prompt}")
-            print(f"Prompt tokens: {prompt_tokens}")
-            print(f"Response tokens: {response_tokens}")
+    if count == 20:
+        print("Maximum iterations reached. Terminating agent.")
+    
+    if verbose:
+                print(f"User prompt: {user_prompt}")
+                print(f"Prompt tokens: {prompt_tokens}")
+                print(f"Response tokens: {response_tokens}")
 
 if __name__ == "__main__":
     main()
