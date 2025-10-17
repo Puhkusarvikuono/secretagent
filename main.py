@@ -6,6 +6,7 @@ from functions.get_files_info import schema_get_files_info
 from functions.get_file_content import schema_get_file_content
 from functions.run_python import schema_run_python_file
 from functions.write_file_content import schema_write_file
+from functions.call_function import call_function
 
 
 load_dotenv()
@@ -80,8 +81,15 @@ def main():
     if response.function_calls:
         calls = response.function_calls
         for call in calls:
-            print(f"Calling function: {call.name}({call.args})")
-    else:    
+            function_call_result = call_function(call, verbose)
+            if not function_call_result.parts[0].function_response.response:
+                raise ValueError(
+                    f"Malformed function response for '{call.name}': missing parts[0].function_response.response"
+                )
+            if verbose:
+                print(f"-> {function_call_result.parts[0].function_response.response}")
+    
+    else:
         print(response.text)
         if verbose:
             print(f"User prompt: {user_prompt}")
